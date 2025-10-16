@@ -15,6 +15,18 @@ type nowResponse struct {
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Handle preflight
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
 	tz := os.Getenv("TIME_ZONE")
 	if tz == "" {
 		tz = "Asia/Jakarta"
@@ -33,6 +45,5 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		Timezone:         tz,
 		UTCOffsetMinutes: offset / 60,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
