@@ -46,17 +46,24 @@ export default function HomePage() {
     async function fetchNow() {
       try {
         const res = await fetch('/api/now', { cache: 'no-store' })
-        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(`API returned ${res.status}`)
+        }
+        const text = await res.text()
+        const data = JSON.parse(text)
         const nowMs = typeof data.nowUnixMs === 'number' ? data.nowUnixMs : Date.now()
         const tz = data.timezone || 'Asia/Jakarta'
         const offsetMin = typeof data.utcOffsetMinutes === 'number' ? data.utcOffsetMinutes : 420
         if (!cancelled) {
           setServerNow({ nowMs, tz, offsetMin })
+          setError(undefined)
         }
-      } catch {
+      } catch (err) {
+        console.error('Failed to fetch /api/now:', err)
         if (!cancelled) {
           // Fallback to local clock, assume Asia/Jakarta offset +420
           setServerNow({ nowMs: Date.now(), tz: 'Asia/Jakarta', offsetMin: 420 })
+          setError(undefined) // Clear the error since we have a fallback
         }
       }
     }
@@ -100,10 +107,14 @@ export default function HomePage() {
       setLoading(true)
       try {
         const res = await fetch(`/api/timeslots?date=${date}`)
+        if (!res.ok) {
+          throw new Error(`API returned ${res.status}`)
+        }
         const data = await res.json()
         setTimeslots(data.timeslots || [])
       } catch (e: any) {
-        setError(e?.message || 'Failed to load timeslots')
+        console.error('Failed to load timeslots:', e)
+        setTimeslots([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
@@ -119,10 +130,14 @@ export default function HomePage() {
       setLoading(true)
       try {
         const res = await fetch(`/api/courts?date=${date}&timeslots=${encodeURIComponent(selectedTimeslots.join(','))}`)
+        if (!res.ok) {
+          throw new Error(`API returned ${res.status}`)
+        }
         const data = await res.json()
         setCourts(data.courts || [])
       } catch (e: any) {
-        setError(e?.message || 'Failed to load courts')
+        console.error('Failed to load courts:', e)
+        setCourts([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
