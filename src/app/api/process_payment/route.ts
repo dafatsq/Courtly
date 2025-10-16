@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db, type Reservation } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,15 +34,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Accept any card number - this is a demo!
+    // Check if any timeslot is already reserved
+    for (const timeslot of body.timeslots) {
+      const snapshot = await db
+        .collection('reservations')
+        .where('date', '==', body.date)
+        .where('timeslotId', '==', timeslot)
+        .where('courtId', '==', body.courtId)
+        .get()
+      
+      if (!snapshot.empty) {
+        return NextResponse.json(
+          { success: false, error: 'One or more selected slots already reserved' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Generate a booking ID
     const bookingId = `BK-${Math.floor(Math.random() * 100000000)}`
 
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    // TODO: Save to Firebase/Firestore here
-    // For now, just return success
+    // Save each timeslot reservation to Firebase
+    const batch = db.batch()
+    const now = Date.now()
+    
+    for (const timeslot of body.timeslots) {
+      const reservation: Reservation = {
+        date: body.date,
+        timeslotId: timeslot,
+        courtId: body.courtId,
+        amount: body.amount,
+        status: 'paid',
+        createdAt: now,
+        paymentRef: bookingId,
+      }
+      
+      const docRef = db.collection('reservations').doc()
+      batch.set(docRef, reservation)
+    }
+    
+    await batch.commit()
+    
+    console.log(`Saved reservations for booking ${bookingId}: ${body.date} | ${body.timeslots.join(', ')} | ${body.courtId}`)
 
     return NextResponse.json({
       success: true,
