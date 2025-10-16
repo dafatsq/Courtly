@@ -3,20 +3,53 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	sh "bookmycourt/internal/shared"
+	"cloud.google.com/go/firestore"
+	"google.golang.org/api/option"
 
 	stripe "github.com/stripe/stripe-go/v79"
 	"github.com/stripe/stripe-go/v79/checkout/session"
 )
 
+type Reservation struct {
+	Date       string `firestore:"date" json:"date"`
+	TimeslotID string `firestore:"timeslotId" json:"timeslotId"`
+	CourtID    string `firestore:"courtId" json:"courtId"`
+	UserEmail  string `firestore:"userEmail" json:"userEmail"`
+	Amount     int64  `firestore:"amount" json:"amount"`
+	Status     string `firestore:"status" json:"status"`
+	CreatedAt  int64  `firestore:"createdAt" json:"createdAt"`
+	PaymentRef string `firestore:"paymentRef" json:"paymentRef"`
+}
+
 type confirmResponse struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+}
+
+func GetFirestoreClient(ctx context.Context) (*firestore.Client, error) {
+	projectID := os.Getenv("FIREBASE_PROJECT_ID")
+	if projectID == "" {
+		return nil, errors.New("FIREBASE_PROJECT_ID not set")
+	}
+	saJSON := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+	var client *firestore.Client
+	var err error
+	if saJSON != "" {
+		client, err = firestore.NewClient(ctx, projectID, option.WithCredentialsJSON([]byte(saJSON)))
+	} else {
+		client, err = firestore.NewClient(ctx, projectID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("firestore client error: %w", err)
+	}
+	return client, nil
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +85,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	client, err := sh.GetFirestoreClient(ctx)
+	client, err := GetFirestoreClient(ctx)
 	if err != nil {
 		_ = json.NewEncoder(w).Encode(confirmResponse{OK: false, Error: err.Error()})
 		return
@@ -93,7 +126,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, ts := range timeslots {
-		res := sh.Reservation{
+		res := Reservation{
 			Date:       date,
 			TimeslotID: ts,
 			CourtID:    court,

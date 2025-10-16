@@ -3,14 +3,62 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
-	sh "bookmycourt/internal/shared"
+	"cloud.google.com/go/firestore"
+	"google.golang.org/api/option"
 )
 
+type Reservation struct {
+	Date       string `firestore:"date" json:"date"`
+	TimeslotID string `firestore:"timeslotId" json:"timeslotId"`
+	CourtID    string `firestore:"courtId" json:"courtId"`
+	UserEmail  string `firestore:"userEmail" json:"userEmail"`
+	Amount     int64  `firestore:"amount" json:"amount"`
+	Status     string `firestore:"status" json:"status"`
+	CreatedAt  int64  `firestore:"createdAt" json:"createdAt"`
+	PaymentRef string `firestore:"paymentRef" json:"paymentRef"`
+}
+
+type Court struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type courtsResponse struct {
-	Courts []sh.Court `json:"courts"`
+	Courts []Court `json:"courts"`
+}
+
+func GetFirestoreClient(ctx context.Context) (*firestore.Client, error) {
+	projectID := os.Getenv("FIREBASE_PROJECT_ID")
+	if projectID == "" {
+		return nil, errors.New("FIREBASE_PROJECT_ID not set")
+	}
+	saJSON := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+	var client *firestore.Client
+	var err error
+	if saJSON != "" {
+		client, err = firestore.NewClient(ctx, projectID, option.WithCredentialsJSON([]byte(saJSON)))
+	} else {
+		client, err = firestore.NewClient(ctx, projectID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("firestore client error: %w", err)
+	}
+	return client, nil
+}
+
+func GetCourts() []Court {
+	return []Court{
+		{ID: "court-1", Name: "Court 1"},
+		{ID: "court-2", Name: "Court 2"},
+		{ID: "court-3", Name: "Court 3"},
+		{ID: "court-4", Name: "Court 4"},
+	}
 }
 
 func parseTimeslots(q string) []string {
@@ -39,13 +87,13 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	timeslots := parseTimeslots(tsParam)
 	w.Header().Set("Content-Type", "application/json")
 
-	all := sh.GetCourts()
+	all := GetCourts()
 	if date == "" || len(timeslots) == 0 {
 		_ = json.NewEncoder(w).Encode(courtsResponse{Courts: all})
 		return
 	}
 
-	client, err := sh.GetFirestoreClient(ctx)
+	client, err := GetFirestoreClient(ctx)
 	if err != nil {
 		_ = json.NewEncoder(w).Encode(courtsResponse{Courts: all})
 		return
@@ -61,13 +109,13 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		for _, d := range docs {
-			var res sh.Reservation
+			var res Reservation
 			_ = d.DataTo(&res)
 			occupied[res.CourtID] = true
 		}
 	}
 
-	var available []sh.Court
+	var available []Court
 	for _, c := range all {
 		if !occupied[c.ID] {
 			available = append(available, c)
