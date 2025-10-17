@@ -134,7 +134,9 @@ export default function BookingPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-center text-white mb-2">🏸 Courtly</h1>
+        <h1 className="text-5xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600 mb-2 tracking-tight">
+          Courtly
+        </h1>
         <p className="text-center text-gray-300 mb-4">
           Reserve your badminton court in just a few clicks
         </p>
