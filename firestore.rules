@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Courts collection - read only for all users
+    match /courts/{courtId} {
+      allow read: if true;
+      allow write: if false; // Only allow writes from admin/backend
+    }
+    
+    // Reservations collection - allow read and create for all users
+    match /reservations/{reservationId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if false; // Prevent modifications after creation
+      allow delete: if false; // Prevent deletions
+    }
+    
+    // Time slots collection - read only
+    match /timeslots/{timeslotId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

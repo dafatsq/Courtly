@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "golang.go",
+    "ms-azuretools.vscode-docker",
+    "firebase.vscode-firebase-explorer"
+  ]
+}
